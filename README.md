@@ -16,6 +16,28 @@ Rather than relying on computationally heavy, end-to-end deep object detectors (
 
 ---
 
+## 📸 Example Output
+
+![Annotated Worker Output](images/example_output.jpg)
+
+*(Green = Compliant, Red = Violation, Grey = Not Visible. The MediaPipe skeletal pose is overlaid to show the exact region cropping anchors).*
+
+---
+
+## 📊 Performance Metrics
+
+Below is the detailed classification performance of our binary Random Forest models across the three core safety items on the validation split:
+
+| PPE Item | Accuracy | Precision | Recall | F1-Score |
+|----------|----------|-----------|--------|----------|
+| **Gloves** | 98.5% | 98% | 98% | 0.98 |
+| **Safety Vest** | 96.8% | 97% | 97% | 0.97 |
+| **Hardhat** | 96.6% | 96% | 97% | 0.97 |
+
+*(Note: The Hardhat recall for the critical `NO-Hardhat` class was aggressively optimized by lowering the decision threshold to $t=0.3$, reducing real-world false negatives by 67%).*
+
+---
+
 ## 🧠 System Architecture
 
 The pipeline is split into three decoupled stages:
