@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Data & Models
+data/
+ppe_filtered/
+cropped_objects/
+cropped_image8/
+resnet_features.csv
+resnet_embeddings_filtered.csv
+ppe_predictions.csv
+saved_models/
+pose_landmarker.task
+
+# Inference & Outputs
+testimage/
+annotated_images/
+annotated_images_6class/
+annotated_images_tuned/
+removed_outliers_images/
+annotated_images.zip
+results/

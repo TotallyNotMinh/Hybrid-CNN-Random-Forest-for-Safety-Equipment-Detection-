@@ -1,0 +1,19 @@
+# PyTorch + CUDA must be installed separately before running this file.
+# See README.md for instructions, or visit https://pytorch.org/get-started/locally/
+#
+# For CUDA 12.6 (used during development):
+#   pip install torch==2.12.0+cu126 torchvision==0.27.0+cu126 --index-url https://download.pytorch.org/whl/cu126
+#
+# For CPU only:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+numpy==2.4.6
+pandas==3.0.3
+scikit-learn==1.8.0
+scipy==1.17.1
+joblib==1.5.3
+opencv-python==4.13.0.92
+mediapipe==0.10.35
+tqdm==4.67.3
+matplotlib==3.10.9
+Pillow==12.2.0

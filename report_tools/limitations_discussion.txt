@@ -1,0 +1,88 @@
+================================================================================
+PPE DETECTION PROJECT: LIMITATIONS & DISCUSSION REFERENCE
+================================================================================
+
+This document summarizes the root causes behind the discrepancy between the high 
+validation accuracy (~95%) and the lower real-world generalization accuracy (~60%), 
+along with concrete, actionable solutions. Use these points to write Section 12 
+(Discussion) and Section 13 (Limitations) of the project report.
+
+--------------------------------------------------------------------------------
+1. THE DISCREPANCY: WHY DOES IT HAPPEN?
+--------------------------------------------------------------------------------
+
+A. SHORTCUT LEARNING & BACKGROUND BIAS
+   - Cause: The frozen pre-trained ResNet18 model is highly sensitive to global 
+     visual contexts like color, textures, lighting, and backgrounds. If the 
+     "Hardhat" or "Safety Vest" training crops consistently contain specific 
+     outdoor background elements, and "NO-" classes contain indoor elements, the 
+     Random Forest learns to classify the background rather than the PPE item.
+   - Real-World Effect: When tested on new backgrounds, the model loses its 
+     shortcut context, causing predictions to fail.
+
+B. MEDIAPIPE LANDMARK DRIFTS & CROPPING NOISE
+   - Cause: In real-world environments, motion blur, unusual angles, or physical 
+     occlusions cause MediaPipe to estimate landmarks with offsets. 
+   - Real-World Effect: Instead of a clean, centered crop of the PPE, the model 
+     receives a cropped box containing 80% background noise and only 20% of the 
+     object. The binary Random Forest classifier is forced to make a decision 
+     on what is essentially background.
+
+C. THE OUTLIER FILTERING PARADOX
+   - Cause: The training process uses IQR outlier filtering to clean up the 
+     dataset (resulting in 'resnet_embeddings_filtered.csv'). 
+   - Real-World Effect: While outlier removal significantly boosts validation 
+     accuracy on the clean training set, it deprives the Random Forest of 
+     learning how to handle noisy, blurry, or edge-case images. The real world 
+     is full of these "outliers".
+
+D. DETECTIONS ON NON-VISIBLE/OCCLUDED PARTS
+   - Cause: When a hand or torso is not visible, MediaPipe still attempts to 
+     estimate its coordinates, generating a crop of background pixels (e.g., 
+     walls, floor, sky).
+   - Real-World Effect: The background crop is processed by the Gloves classifier, 
+     leading to arbitrary predictions and ghost detections (e.g., predicting 
+     "Gloves" or "NO-Gloves" on an empty wall).
+
+E. THE GLOVE CLASSIFIER PARADOX (RESOLUTION & COLOR OVERFITTING)
+   - Cause: Gloves lack a rigid geometric shape (unlike helmets/vests) and are 
+     extremely small physically. When hand crops are resized and upscaled to 224x224, 
+     they suffer from severe pixelation, compression artifacts, and high background 
+     contamination (jeans, sleeves, tools). The ResNet18 model therefore relies 
+     on color and texture shortcuts (e.g., bare skin tone vs. blue/white glove color).
+   - Real-World Effect: Despite having the highest validation accuracy (~97.3%), 
+     the model collapses in the real world when encountering different skin tones, 
+     alternative glove colors, varying camera resolutions, or new backgrounds.
+
+
+--------------------------------------------------------------------------------
+2. PROPOSED SOLUTIONS & FUTURE RECOMMENDATIONS
+--------------------------------------------------------------------------------
+
+A. MEDIAPIPE CONFIDENCE THRESHOLDING
+   - Solution: Leverage MediaPipe's internal `visibility` and `presence` scores. 
+     If the visibility score of a landmark falls below a set threshold (e.g., 0.6), 
+     reject the crop immediately and output 'NOT_VISIBLE' instead of classifying 
+     background noise.
+
+B. END-TO-END FINE-TUNING OF THE FEATURE EXTRACTOR
+   - Solution: Instead of keeping the ResNet18 weights frozen, fine-tune the 
+     entire ResNet18 model on the target PPE crop dataset. This forces the model 
+     to discard background context and learn semantic features directly related to 
+     the physical properties of hardhats, vests, and gloves.
+
+C. ROBUST DATA AUGMENTATION
+   - Solution: During training, apply heavy data augmentations directly to the 
+     cropped objects. This includes:
+     - Random bounding box padding and shifts (to simulate MediaPipe drift).
+     - Color jittering and lighting changes.
+     - Background replacement (swapping backgrounds randomly to break context bias).
+
+D. SPECIALIZED HAND ESTIMATORS & COLOR JITTERING
+   - Solution: 
+     - Use a dedicated hand-pose estimator (such as MediaPipe Hands) specifically 
+       for hand crops to extract higher resolution, tighter bounding boxes.
+     - Apply aggressive color jittering and hue/saturation shifts during training 
+       to prevent the classifier from overfitting to specific skin tones or 
+       particular glove colors.
+

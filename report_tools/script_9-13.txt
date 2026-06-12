@@ -1,0 +1,120 @@
+================================================================================
+  PPE COMPLIANCE DETECTION — PRESENTATION SCRIPT
+  Sections 9–13 Only
+================================================================================
+
+--------------------------------------------------------------------------------
+SECTION 9 — TRAINING PROCESS
+--------------------------------------------------------------------------------
+
+With our 159,000 labelled 512-dimensional embeddings ready, training is
+straightforward. We train three independent binary Random Forest classifiers —
+one each for Hardhat, Safety Vest, and Gloves — rather than a single
+multi-class model. This keeps each classifier focused on a single yes-or-no
+decision and prevents imbalance in one category from affecting the others.
+
+The dataset is split 80/20 using stratified sampling, which preserves class
+proportions in both subsets — critical for small classes like NO-Safety Vest.
+Each Random Forest uses 100 decision trees with unlimited depth and all CPU
+cores in parallel. The trees operate on the 512-dimensional embeddings, never
+on raw pixels. Because the ResNet encoder already captured the visual semantics,
+all three classifiers train in under a minute. The resulting models are saved
+to disk as .pkl files.
+
+--------------------------------------------------------------------------------
+SECTION 10 — INFERENCE PROCESS
+--------------------------------------------------------------------------------
+
+At inference, each image passes through a six-step pipeline. First, MediaPipe
+attempts to detect 33 body landmarks. If none are found, the image is flagged
+as NO POSE DETECTED and skipped.
+
+If a pose is found, four regions are cropped dynamically — head, torso, left
+hand, and right hand — with bounding boxes scaled proportionally to the
+measured shoulder width, ensuring consistent crops regardless of camera distance.
+
+Each crop is encoded by the frozen ResNet18 into a 512-d vector, then
+classified by the corresponding Random Forest. For gloves, a strict AND rule
+applies: every visible hand must be classified as gloved for the check to pass.
+Finally, the pose skeleton and a colour-coded status panel (green / red / grey)
+are drawn onto a saved copy of the image — the original is never modified.
+
+--------------------------------------------------------------------------------
+SECTION 11 — EXPERIMENTAL RESULTS
+--------------------------------------------------------------------------------
+
+All three classifiers were evaluated on the 20% held-out validation split.
+We report per-class precision, recall, and F1 alongside accuracy, given the
+class imbalance.
+
+  Gloves vs NO-Gloves          —  97.3%  (highest)
+  Hardhat vs NO-Hardhat        —  94.5%
+  Safety Vest vs NO-Safety Vest  —  93.0%  (lowest)
+
+The Gloves classifier leads because gloves produce a highly distinctive
+textural signature in the embedding space. The Safety Vest classifier lags,
+consistent with its smaller training set (~22,000 samples) and 4:1 class ratio.
+Across all three tasks, per-class F1 scores confirm the models are not simply
+exploiting majority-class dominance.
+
+On the 87-image real-world test set, pose detection succeeded in roughly 60%
+of images. For images where a pose was detected, classification outputs were
+visually coherent across varied lighting, angles, and subjects.
+
+--------------------------------------------------------------------------------
+SECTION 12 — DISCUSSION
+--------------------------------------------------------------------------------
+
+The results validate the central design premise: a frozen ResNet encoder plus
+a trained Random Forest delivers mid-to-high nineties accuracy with no GPU
+fine-tuning and sub-minute retraining. This makes the system practical for
+organisations that need to update compliance rules without deep learning
+infrastructure.
+
+The performance hierarchy — Gloves > Hardhat > Safety Vest — reflects the
+discriminability of each item in ResNet's feature space. Gloves have strong
+local texture signals; hardhats have consistent shape signals with more colour
+variation; safety vests overlap more with ordinary clothing, especially when
+crops include background clutter.
+
+The decision to use class_weight=None for the Safety Vest task is a deliberate
+simplicity tradeoff. Bagging mitigates but does not fully neutralise the 4:1
+imbalance, so the model may be marginally less sensitive to the NO-Safety Vest
+class than an explicitly reweighted classifier. This is worth revisiting in
+future iterations.
+
+A key advantage of Random Forest over neural alternatives is the native feature
+importance ranking across the 512 embedding dimensions — this provides an
+auditable explanation of each classification decision, which is valuable in
+safety-critical contexts.
+
+--------------------------------------------------------------------------------
+SECTION 13 — LIMITATIONS
+--------------------------------------------------------------------------------
+
+Four core limitations bound this system's practical applicability.
+
+First, the entire pipeline depends on successful pose detection. Roughly 40%
+of our test images produced no pose — due to missing persons, occlusion, or
+encoding errors — yielding no output at all. In live deployment, this becomes
+a direct coverage gap.
+
+Second, crop quality is bounded by landmark accuracy. Misdetected landmarks
+produce poorly framed crops that may include background clutter or exclude the
+PPE item, degrading classifier input quality in ways that are hard to detect
+automatically.
+
+Third, a domain shift exists between training and inference. Training crops
+come from YOLO bounding box annotations; inference crops come from MediaPipe
+landmark positions. These are not identical, and the mismatch is a source of
+systematic error that cannot be fully quantified without a purpose-built
+benchmark.
+
+Finally, the system has no temporal awareness. Processing isolated frames means
+transient occlusions or brief PPE removal may produce unreliable outputs in
+video environments, where temporal integration would be essential for
+production-grade reliability.
+
+================================================================================
+  END OF SCRIPT — SECTIONS 9 TO 13
+================================================================================

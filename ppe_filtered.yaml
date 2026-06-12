@@ -1,0 +1,14 @@
+
+train: ppe_filtered/train/images
+val: ppe_filtered/valid/images
+test: ppe_filtered/test/images
+
+nc: 6
+
+names:
+  - Gloves
+  - Hardhat
+  - NO-Gloves
+  - NO-Hardhat
+  - NO-Safety Vest
+  - Safety Vest
